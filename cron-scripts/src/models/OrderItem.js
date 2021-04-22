@@ -3,7 +3,7 @@ import mongoose from 'mongoose'
 const MODEL_NAME = 'order-item'
 
 const Schema = new mongoose.Schema({
-    asin: String,
+    ASIN: String,
     OrderItemId: String,
     SellerSKU: String,
     Title: String,
