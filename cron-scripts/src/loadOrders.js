@@ -35,6 +35,7 @@ async function fetchOrders(seller) {
         return
     }
 
+    console.log(seller, "ORDERS LOADED FOR SELLER ", orders)
     const orderIds = orders.map(o => o.AmazonOrderId)
     const existingBuyers = await OrderBuyerInfo.find({ AmazonOrderId: orderIds })
     const buyersByOrderId = _.keyBy(existingBuyers, 'AmazonOrderId') 
@@ -84,8 +85,8 @@ function mapAmazonOrderToSchema(amazonOrder, seller) {
     amazonOrder.OrderTotal = Number(amazonOrder.OrderTotal.Amount)
 }
 
-function truncateExistingOrders(orderIds) {
-    return Order.deleteMany({ AmazonOrderId: orderIds })
+export function truncateExistingOrders(orderIds) {
+    return Order.deleteMany({ AmazonOrderID: orderIds })
 }
 
 async function fetchOrderItems(seller, orderIds) {

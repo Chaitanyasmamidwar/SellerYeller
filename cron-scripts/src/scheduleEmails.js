@@ -3,6 +3,11 @@ import _ from 'lodash'
 
 import Order from "./models/Order"
 import EmailEvent from "./models/EmailEvent"
+import { buildSpApiConnector } from "./spAPIHelper"
+import OrderBuyerInfo from "./models/OrderBuyerInfo"
+import Seller from "./models/Seller"
+
+const DELIVERED_ORDER_STATUS = 'Shipped - Delivered to Buyer'
 
 export async function scheduleEmails() {
     /*
@@ -16,27 +21,32 @@ export async function scheduleEmails() {
     4. for every order present add a event to schedule email
     */
 
-    const last2Weeks = sub(new Date(), { days: 15 })
-    console.log("DATE:::::", last2Weeks.toString())
+    const last2Weeks = sub(new Date(), { days: 30 })
+    const criteria = { 
+        LastUpdatedDate: { $gt: last2Weeks },
+        OrderStatus: DELIVERED_ORDER_STATUS,
+        // EasyShipShipmentStatus: 'Delivered',
+    }
+    console.log("DATE:::::", last2Weeks, DELIVERED_ORDER_STATUS)
 
     const orders = await Order.find({ 
-        LastUpdateDate: { $gt: last2Weeks },
-        OrderStatus: 'Shipped',
+        LastUpdatedDate: { $gt: last2Weeks },
+        OrderStatus: DELIVERED_ORDER_STATUS,
         // EasyShipShipmentStatus: 'Delivered',
     })
-    const orderIds = orders.map(order => order.AmazonOrderId)
+
+
+    const filteredOrders = await applyProductFilterOnOrders(orders)
+    const orderIds = filteredOrders.map(order => order.AmazonOrderID)
     const existingEvents = await EmailEvent.find({ orderId: orderIds })
-    const eventsByOrderId = _.keyBy(existingEvents, 'orderId')
 
-    console.log("EVENTS BY ORDER ID:::::", eventsByOrderId)
+    const newOrders = _.differenceBy(
+        filteredOrders,
+        existingEvents,
+        orderOrEvent => orderOrEvent.AmazonOrderID || orderOrEvent.orderId,
+    )
 
-    const newEvents = []
-
-    orders.forEach(order => {
-        if (!eventsByOrderId[order.AmazonOrderId]) {
-            newEvents.push(createEventFromOrder(order))
-        }
-    })
+    const newEvents = await Promise.all(newOrders.map(createEventFromOrder))
 
     console.log("NEW EVENTSS:::::", newEvents)
 
@@ -44,13 +54,43 @@ export async function scheduleEmails() {
     // event table contains record with all the detials of the email
 }
 
-
-function createEventFromOrder(order) {
-    const template = 'This is a sample template for an email'
+async function createEventFromOrder(order) {
+    const emailTemplate = 'This is a sample template for an email'
+    const sellerApi = await buildSpApiConnector(order.SellerId)
+    const result = await sellerApi.callAPI({
+        operation: 'getOrderBuyerInfo',
+        path: {
+            orderId: order.AmazonOrderID,
+        },
+    })
+    const buyer = new OrderBuyerInfo(result)
 
     return {
-        orderId: order.AmazonOrderId,
+        orderId: order.AmazonOrderID,
         isEmailScheduled: false,
-        template,
+        emailTemplate,
+        buyer,
     }
 }
+
+async function applyProductFilterOnOrders(orders) {
+    const sellers = await Seller.find({ sellerId: orders.map(o => o.SellerId)})
+    const sellersById = _.keyBy(sellers, 'sellerId')
+
+    const ordersBySellerIdAndASIN = orders.reduce((acc, order) => {
+        if(sellersById[order.SellerId].productFilter.includes(order.OrderItem.ASIN)) {
+            acc.push(order)
+        }
+
+        return acc
+    }, [])
+
+    return ordersBySellerIdAndASIN
+}
+
+/*
+    Test Product filter
+    convert programs to cron
+    setup mail server
+    send email
+*/

@@ -1,18 +1,23 @@
 import mongoose from 'mongoose'
 
 const MODEL_NAME = 'order'
+
+const OrderItemSchema = new mongoose.Schema({
+    ASIN: String,
+    AmazonOrderItemId: String,
+    SKU: String,
+    ProductName: String,
+    Quantity: Number,
+    ItemPrice: Object,
+})
+
 const OrderSchema = new mongoose.Schema({
-    AmazonOrderId: String,
+    AmazonOrderID: String,
     PurchaseDate: Date,
-    LastUpdateDate: Date,
+    LastUpdatedDate: Date,
     OrderStatus: String,
-    OrderTotal: Number,
-    MarketplaceId: String,
-    EasyShipShipmentStatus: String,
-    LatestDeliveryDate: Date,
     SellerId: String,
-    BuyerEmail: String,
-    BUynerName: String,
+    OrderItem: OrderItemSchema,
 })
 
 const Order = mongoose.models[MODEL_NAME] || mongoose.model(MODEL_NAME, OrderSchema)

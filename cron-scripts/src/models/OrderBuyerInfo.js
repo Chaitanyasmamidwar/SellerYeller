@@ -2,7 +2,7 @@ import mongoose from 'mongoose'
 
 const MODEL_NAME = 'order-buyer-info'
 
-const Schema = new mongoose.Schema({
+export const Schema = new mongoose.Schema({
     BuyerName: String,
     BuyerEmail: String,
     AmazonOrderId: String,
